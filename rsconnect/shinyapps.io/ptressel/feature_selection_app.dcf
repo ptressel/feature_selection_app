@@ -1,0 +1,8 @@
+name: feature_selection_app
+account: ptressel
+server: shinyapps.io
+bundleId: 205540
+url: https://ptressel.shinyapps.io/feature_selection_app
+when: 1434666491.73496
+asMultiple: FALSE
+asStatic: FALSE
