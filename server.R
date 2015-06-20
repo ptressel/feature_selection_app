@@ -26,9 +26,10 @@ require(e1071, quietly=TRUE)
 # there really may be an improvement from training on that remaining 30%
 # as well, rather than a degradation due to overfitting.
 data(SAheart)
-SAheart$chd <- as.factor(SAheart$chd)
+SAheart$chd <- factor(SAheart$chd, levels=c(0,1), labels=c("FALSE","TRUE"))
 train.ctrl <- trainControl(method="cv", number=5, returnData=FALSE)
-feature.labels <- c(
+column.labels <- c(
+    "chd" = "Heart disease",
     "adiposity" = "Adiposity",
     "age" = "Age",
     "alcohol" = "Alcohol use",
@@ -66,18 +67,55 @@ shinyServer(function(input, output) {
     output$featurePlot <- renderPlot({
         input$plotButton
         isolate({
-            if (length(input$features >= 2)) {
+            # Don't complain to the user for minor things.  If they have
+            # checked any feature, we can show an appropriate plot.  If the
+            # outcome is checked, show that with the first checked feature.
+            # Otherwise, show the first two checked features.
+            if (length(input$features) >= 1) {
+                xcol <- NULL
+                ycol <- NULL
+                if (input$outcome | length(input$features) == 1) {
+                    # Here, the user wants to compare against outcome.
+                    x.name <- "chd"
+                    y.name <- input$features[1]
+                } else {
+                    x.name <- input$features[1]
+                    y.name <- input$features[2]
+                }
                 par(mar=c(4,4,1,1))
-                plot(SAheart[,input$features[1]], SAheart[,input$features[2]],
-                     xlab=feature.labels[input$features[1]],
-                     ylab=feature.labels[input$features[2]])
+                x.column <- SAheart[, x.name]
+                y.column <- SAheart[, y.name]
+                plot(x.column, y.column,
+                     xlab=column.labels[x.name],
+                     ylab=column.labels[y.name],
+                     col="red")
+                # If either column is a binary factor, convert it to 0 and 1.
+                # For factors with other than 2 levels, omit the correlation.
+                cvt.factor <- function(col) {
+                    if (is.factor(col)) {
+                        level.names <- levels(col)
+                        if (length(level.names) == 2) {
+                            # Convert the first level to FALSE, second to TRUE.
+                            col == level.names[2]
+                        } else {
+                            NULL
+                        }
+                    } else {
+                        col
+                    }
+                }
+                x.column <- cvt.factor(x.column)
+                y.column <- cvt.factor(y.column)
+                if (!is.null(x.column) & !is.null(y.column)) {
+                    c <- round(cor(x.column, y.column), digits=3)
+                    usr <- par("usr")
+                    xmid <- (usr[1] + usr[2]) / 2
+                    ytop <- usr[4] - 2
+                    text(xmid, ytop, sprintf("Correlation = %.3f", c))
+                }
             }
         })
     })
-#     output$usersFeatures <- renderPrint({
-#         input$trainButton
-#         isolate(input$features)
-#     })
     output$accuracy <- renderText({
         input$trainButton
         isolate(run.train(input$features))
